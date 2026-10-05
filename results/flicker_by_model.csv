@@ -1,0 +1,17 @@
+model,class,source_frame_limit,sample_stride,analyzed_frames,presence_toggles,flicker_ratio
+yolo11n_88,wood,300,3,26,0,0.0
+yolo11n_88,box,300,3,26,1,0.04
+yolo11n_88,pet,300,3,26,0,0.0
+yolo11n_88,ALL,300,3,26,0,0.0
+alope_121,wood,300,3,26,0,0.0
+alope_121,box,300,3,26,1,0.04
+alope_121,pet,300,3,26,0,0.0
+alope_121,ALL,300,3,26,0,0.0
+alope_151,wood,300,3,26,0,0.0
+alope_151,box,300,3,26,1,0.04
+alope_151,pet,300,3,26,0,0.0
+alope_151,ALL,300,3,26,0,0.0
+alope_181,wood,300,3,26,0,0.0
+alope_181,box,300,3,26,1,0.04
+alope_181,pet,300,3,26,0,0.0
+alope_181,ALL,300,3,26,0,0.0
