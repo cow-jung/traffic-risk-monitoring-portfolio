@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!runButton) return;
   runButton.addEventListener("click", async () => {
-    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+    const file = (window.getSelectedDetectionFile && window.getSelectedDetectionFile()) || (fileInput && fileInput.files ? fileInput.files[0] : null);
     if (!file) {
       resultText.textContent = "먼저 탐지할 사진 또는 영상 파일을 선택하세요.";
       return;
