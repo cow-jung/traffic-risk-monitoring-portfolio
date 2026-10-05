@@ -24,7 +24,9 @@
   var view = 'traffic';
   var next = { traffic: 0, objects: 0 };
   var media = null;
+  var selectedLocalFile = null;
   var localUrls = new Set();
+  window.getSelectedDetectionFile = function () { return selectedLocalFile; };
 
   function mapTrafficAlert(alert) {
     var rawType = String(alert.type || '');
@@ -427,6 +429,7 @@
   $('media-file').addEventListener('change', function (event) {
     var file = event.target.files[0];
     if (!file) return;
+    selectedLocalFile = file;
     $('selected-file-name').textContent = file.name;
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
       $('source-error').textContent = '사진 또는 영상 파일만 선택해 주세요.';
