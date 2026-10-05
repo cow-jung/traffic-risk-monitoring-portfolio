@@ -1,7 +1,14 @@
-from flask import Flask, render_template, Response, request, jsonify
+from flask import Flask, render_template, Response, request, jsonify, send_from_directory
 from pathlib import Path
 import os
 import requests
+import uuid
+import cv2
+
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None
 
 BASE_DIR = Path(__file__).resolve().parent
 SITE_DIR = BASE_DIR.parent / "site"
@@ -16,6 +23,24 @@ app = Flask(
 CAMERAS = ("cam1", "cam2")
 AI_SERVER_BASE = os.environ.get("AI_SERVER_BASE", "http://192.168.2.100:5000").rstrip("/")
 HTTP_TIMEOUT = 3
+MODEL_PATH = Path(os.environ.get("FALLEN_MODEL_PATH", BASE_DIR.parent / "models" / "best.pt"))
+UPLOAD_DIR = BASE_DIR.parent / "runtime" / "uploads"
+OUTPUT_DIR = BASE_DIR.parent / "runtime" / "outputs"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+_model = None
+
+
+def _get_local_model():
+    global _model
+    if _model is None:
+        if YOLO is None:
+            raise RuntimeError("ultralytics가 설치되지 않았습니다.")
+        if not MODEL_PATH.exists():
+            raise FileNotFoundError(f"모델 파일이 없습니다: {MODEL_PATH}")
+        _model = YOLO(str(MODEL_PATH))
+    return _model
+
 
 
 @app.route("/")
@@ -226,6 +251,82 @@ def ai_status():
         )
     except requests.RequestException as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
+
+
+@app.route("/local_model_status")
+def local_model_status():
+    return jsonify({
+        "ready": YOLO is not None and MODEL_PATH.exists(),
+        "model_path": str(MODEL_PATH),
+        "classes": ["wood", "box", "pet"],
+    })
+
+
+@app.route("/detect_media", methods=["POST"])
+def detect_media():
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"ok": False, "error": "사진 또는 영상 파일을 선택하세요."}), 400
+    if YOLO is None:
+        return jsonify({"ok": False, "error": "ultralytics가 설치되지 않았습니다."}), 503
+    if not MODEL_PATH.exists():
+        return jsonify({"ok": False, "error": f"models/best.pt가 필요합니다. 현재 경로: {MODEL_PATH}"}), 503
+
+    uploaded = request.files["file"]
+    suffix = Path(uploaded.filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".mp4", ".avi", ".mov", ".mkv"}
+    if suffix not in allowed:
+        return jsonify({"ok": False, "error": "지원하지 않는 파일 형식입니다."}), 400
+
+    token = uuid.uuid4().hex
+    source = UPLOAD_DIR / f"{token}{suffix}"
+    uploaded.save(source)
+    conf = min(max(float(request.form.get("conf", "0.30")), 0.05), 0.95)
+    model = _get_local_model()
+
+    try:
+        if suffix in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
+            result = model.predict(source=str(source), conf=conf, imgsz=640, verbose=False)[0]
+            output_name = f"{token}.jpg"
+            output_path = OUTPUT_DIR / output_name
+            cv2.imwrite(str(output_path), result.plot())
+            detections = []
+            for box in result.boxes:
+                cls_id = int(box.cls[0].item())
+                detections.append({"class": result.names[cls_id], "confidence": round(float(box.conf[0].item()), 3)})
+            return jsonify({"ok": True, "kind": "image", "url": f"/local_output/{output_name}", "detections": detections, "count": len(detections)})
+
+        cap = cv2.VideoCapture(str(source))
+        if not cap.isOpened():
+            raise RuntimeError("영상을 열 수 없습니다.")
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        output_name = f"{token}.mp4"
+        output_path = OUTPUT_DIR / output_name
+        writer = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+        total = 0
+        class_counts = {"wood": 0, "box": 0, "pet": 0}
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            result = model.predict(source=frame, conf=conf, imgsz=640, verbose=False)[0]
+            writer.write(result.plot())
+            total += len(result.boxes)
+            for box in result.boxes:
+                name = result.names[int(box.cls[0].item())]
+                if name in class_counts:
+                    class_counts[name] += 1
+        cap.release()
+        writer.release()
+        return jsonify({"ok": True, "kind": "video", "url": f"/local_output/{output_name}", "count": total, "class_counts": class_counts})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/local_output/<path:filename>")
+def local_output(filename):
+    return send_from_directory(OUTPUT_DIR, filename, conditional=True)
 
 
 if __name__ == "__main__":
