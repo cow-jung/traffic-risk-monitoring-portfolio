@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>try { if (localStorage.getItem('mini-project-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (error) { /* 기본 다크 모드 */ }</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 도로 낙하물 탐지 시스템</title>
+  <meta name="description" content="주정차·역주행 및 도로 낙하물을 구분해 보여주는 도로 이상상황 대시보드.">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="brand">AI 도로 낙하물 탐지 시스템</div>
+    <nav aria-label="주 메뉴">
+      <a href="/">홈</a>
+      <a href="/about">개요</a>
+      <a href="/control">대시보드</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- 히어로 -->
+    <section id="hero">
+      <div class="hero-copy">
+        <h1>도로 위 이상상황을 한 화면에서 확인합니다.</h1>
+        <p>주정차·역주행과 목재·상자·페트병 낙하물을 구분해 보여주는 도로 이상상황 대시보드입니다. 현재 화면의 탐지 기록은 예시이며 실제 모델 연결은 진행 전입니다.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/control">대시보드 보기</a>
+          <a class="btn" href="/about">프로젝트 소개</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <line class="lane" x1="30" y1="250" x2="190" y2="10"></line>
+          <line class="lane" x1="370" y1="250" x2="210" y2="10"></line>
+          <circle class="node" cx="150" cy="160" r="6"></circle>
+          <circle class="node" cx="232" cy="98" r="5"></circle>
+          <circle class="node" cx="196" cy="58" r="4"></circle>
+        </svg>
+      </div>
+    </section>
+
+    <div class="preview-grid">
+
+      <!-- 대시보드 미리보기 -->
+      <section id="control-preview" class="preview-card">
+        <h2>대시보드 미리보기</h2>
+        <p>주정차·역주행과 낙하물 화면을 탭으로 전환하고, 기록을 선택해 상세 이유와 연결된 매체를 확인합니다.</p>
+        <div class="stat-row">
+          <div class="stat">
+            <span class="num">예시</span>
+            <span class="label">탐지 기록</span>
+          </div>
+          <div class="stat">
+            <span class="num">2대</span>
+            <span class="label">연결 예정</span>
+          </div>
+        </div>
+        <a class="card-link" href="/control">대시보드 전체 보기</a>
+      </section>
+
+      <!-- 프로젝트 소개 요약 -->
+      <section id="about-preview" class="preview-card">
+        <h2>프로젝트 소개</h2>
+        <p>도로 이상상황과 낙하물 세 종류를 대시보드에서 구분하고, 모델 학습·비교·평가 및 시스템 연동 과정을 정리한 포트폴리오 프로젝트입니다.</p>
+        <a class="card-link" href="/about">프로젝트 소개 자세히 보기</a>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- 챗봇 버튼 -->
+  <button id="theme-toggle" type="button" aria-label="밝은 모드로 전환" aria-pressed="false" title="밝은 모드로 전환">☀</button>
+  <button id="chat-fab" type="button" aria-expanded="false" aria-controls="chat-panel"><span class="sr-only">도움말 챗봇 열기</span></button>
+  <div id="chat-panel" role="dialog" aria-label="도움말 챗봇"></div>
+
+  <footer>
+    <p>© 2026 AI 도로 낙하물 탐지 및 모니터링 포트폴리오</p>
+  </footer>
+
+  <script src="/static/js/site.js"></script>
+</body>
+</html>
