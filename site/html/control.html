@@ -54,11 +54,11 @@
               <div class="source-row"><input id="media-url" type="url" placeholder="https://.../video.mp4 또는 YouTube 링크"><button id="open-link" type="button" class="btn btn-primary">링크 열기</button></div>
               <span class="source-upload-label">사진·영상 파일 선택</span>
               <div class="file-picker"><button id="choose-media-file" type="button" class="file-picker-button" aria-describedby="selected-file-name">파일 선택</button><span id="selected-file-name" aria-live="polite">선택한 파일 없음</span><input id="media-file" class="sr-only" type="file" accept="image/*,video/*" aria-label="사진 또는 영상 파일 선택" tabindex="-1"></div>
-              <p class="source-hint">직접 영상·사진 주소 또는 YouTube 링크를 지원합니다. 파일은 현재 브라우저에서만 열립니다.</p>
+              <div class="source-row"><label for="detect-conf">탐지 신뢰도</label><input id="detect-conf" type="number" min="0.05" max="0.95" step="0.05" value="0.30"><button id="run-local-detect" type="button" class="btn btn-primary">AI 탐지 실행</button></div><p class="source-hint">로컬 models/best.pt를 사용해 wood · box · pet을 탐지합니다. 영상은 길이에 따라 처리 시간이 걸릴 수 있습니다.</p>
               <p id="source-error" class="source-error" role="alert"></p>
             </div>
             <div id="media-stage" class="media-stage"><p>영상 링크를 입력하거나 사진·영상 파일을 선택하세요.</p></div>
-            <div class="media-footer"><span id="media-name">선택한 매체 없음</span><span>자동 탐지 모델 미연결</span></div>
+            <div class="media-footer"><span id="media-name">선택한 매체 없음</span><span id="local-model-state">로컬 AI 모델 확인 중</span></div><p id="local-detect-result" class="source-hint" aria-live="polite"></p>
           </div>
         </section>
 
@@ -72,7 +72,7 @@
         </aside>
       </div>
     </div>
-    <p class="dash-disclaimer">주정차·역주행 탭은 <strong>실제 AI 서버 이상상황 이벤트</strong>를 표시합니다. 상세보기에서 저장된 이벤트 이미지와 영상을 확인할 수 있습니다. 과거 탐지 기록도 AI 서버에서 불러오며, 신뢰도 값이 없는 기록은 <strong>—</strong>로 표시됩니다. 낙하물 탭은 아직 기능 확인용 예시입니다.</p>
+    <p class="dash-disclaimer">주정차·역주행 탭은 <strong>실제 AI 서버 이상상황 이벤트</strong>를 표시합니다. 상세보기에서 저장된 이벤트 이미지와 영상을 확인할 수 있습니다. 과거 탐지 기록도 AI 서버에서 불러오며, 신뢰도 값이 없는 기록은 <strong>—</strong>로 표시됩니다. 낙하물 탭에서는 로컬 YOLO11n 모델을 사용해 업로드한 사진·영상의 wood · box · pet 탐지를 실행할 수 있습니다.</p>
     <div class="legacy-panels">
 <section id="detection-info">
       <h2>오늘의 최근 탐지 결과 <small>최근 10건</small></h2>
@@ -143,6 +143,7 @@
   <footer><p>© 2026 AI 도로 낙하물 탐지 및 모니터링 포트폴리오</p></footer>
   <script src="/static/js/site.js"></script>
   <script src="/static/js/control-dashboard.js"></script>
+  <script src="/static/js/local-inference.js"></script>
   <script src="/static/js/camera-stream.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
   <script src="/static/js/model-charts.js" defer></script>
