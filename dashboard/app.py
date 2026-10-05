@@ -1,0 +1,232 @@
+from flask import Flask, render_template, Response, request, jsonify
+from pathlib import Path
+import os
+import requests
+
+BASE_DIR = Path(__file__).resolve().parent
+
+app = Flask(
+    __name__,
+    template_folder=str(BASE_DIR / "site" / "html"),
+    static_folder=str(BASE_DIR / "site"),
+    static_url_path="/static",
+)
+
+CAMERAS = ("cam1", "cam2")
+AI_SERVER_BASE = os.environ.get("AI_SERVER_BASE", "http://192.168.2.100:5000").rstrip("/")
+HTTP_TIMEOUT = 3
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/control")
+def control():
+    return render_template("control.html")
+
+
+@app.route("/history")
+def history():
+    return render_template("history.html")
+
+
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "ai_server": AI_SERVER_BASE,
+    })
+
+
+def _valid_camera(cam_id):
+    return cam_id in CAMERAS
+
+
+@app.route("/video_feed")
+def video_feed():
+    """Proxy the processed MJPEG stream from the remote Traffic AI server."""
+    cam_id = request.args.get("cam_id", "cam1")
+    if not _valid_camera(cam_id):
+        return "unknown camera", 404
+
+    upstream_url = f"{AI_SERVER_BASE}/video_feed"
+    try:
+        upstream = requests.get(
+            upstream_url,
+            params={"cam_id": cam_id},
+            stream=True,
+            timeout=(HTTP_TIMEOUT, None),
+        )
+        upstream.raise_for_status()
+    except requests.RequestException as exc:
+        return f"AI camera server unavailable: {exc}", 502
+
+    content_type = upstream.headers.get(
+        "Content-Type",
+        "multipart/x-mixed-replace; boundary=frame",
+    )
+
+    def generate():
+        try:
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    return Response(
+        generate(),
+        content_type=content_type,
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
+
+
+@app.route("/camera_status")
+def camera_status():
+    """Translate the remote AI server debug status into dashboard camera state."""
+    try:
+        response = requests.get(f"{AI_SERVER_BASE}/debug_status", timeout=HTTP_TIMEOUT)
+        response.raise_for_status()
+        remote = response.json()
+    except (requests.RequestException, ValueError):
+        return jsonify({
+            cam: {"connected": False, "last_seen_seconds": None}
+            for cam in CAMERAS
+        }), 200
+
+    result = {}
+    for cam in CAMERAS:
+        info = remote.get(cam, {}) if isinstance(remote, dict) else {}
+        # The AI server reports frame shapes after receiving/processing a frame.
+        connected = bool(info.get("raw_shape") or info.get("normalized_shape"))
+        result[cam] = {
+            "connected": connected,
+            "last_seen_seconds": None,
+            "detections": info.get("detections", 0),
+            "tracked": info.get("tracked", 0),
+            "last_error": info.get("last_error", ""),
+        }
+    return jsonify(result)
+
+
+@app.route("/event_history")
+def event_history():
+    """Proxy stored historical detection records from the remote AI server."""
+    try:
+        upstream = requests.get(
+            f"{AI_SERVER_BASE}/event_history",
+            params={"limit": request.args.get("limit", "100")},
+            timeout=HTTP_TIMEOUT,
+        )
+        upstream.raise_for_status()
+        return Response(
+            upstream.content,
+            status=upstream.status_code,
+            content_type=upstream.headers.get("Content-Type", "application/json"),
+        )
+    except requests.RequestException as exc:
+        return jsonify({"events": [], "count": 0, "error": str(exc)}), 502
+
+
+@app.route("/event_media/<cam_id>/<media_type>/<path:filename>")
+def event_media(cam_id, media_type, filename):
+    """Proxy saved event images/videos from the remote Traffic AI server."""
+    if not _valid_camera(cam_id) or media_type not in ("images", "videos"):
+        return "invalid event media path", 400
+
+    upstream_url = f"{AI_SERVER_BASE}/event_media/{cam_id}/{media_type}/{filename}"
+    headers = {}
+    if request.headers.get("Range"):
+        headers["Range"] = request.headers["Range"]
+
+    try:
+        upstream = requests.get(
+            upstream_url,
+            headers=headers,
+            stream=True,
+            timeout=(HTTP_TIMEOUT, None),
+        )
+    except requests.RequestException as exc:
+        return f"AI event media unavailable: {exc}", 502
+
+    response_headers = {
+        "Cache-Control": "no-store",
+        "Accept-Ranges": upstream.headers.get("Accept-Ranges", "bytes"),
+    }
+    for name in ("Content-Length", "Content-Range"):
+        if upstream.headers.get(name):
+            response_headers[name] = upstream.headers[name]
+
+    def generate():
+        try:
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    return Response(
+        generate(),
+        status=upstream.status_code,
+        content_type=upstream.headers.get("Content-Type", "application/octet-stream"),
+        headers=response_headers,
+    )
+
+
+@app.route("/stream_alerts")
+def stream_alerts():
+    """Proxy real-time SSE alerts from the remote Traffic AI server."""
+    try:
+        upstream = requests.get(
+            f"{AI_SERVER_BASE}/stream_alerts",
+            stream=True,
+            timeout=(HTTP_TIMEOUT, None),
+            headers={"Accept": "text/event-stream"},
+        )
+        upstream.raise_for_status()
+    except requests.RequestException as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
+
+    def generate():
+        try:
+            for line in upstream.iter_lines(decode_unicode=True):
+                if line is not None:
+                    yield line + "\n"
+        finally:
+            upstream.close()
+
+    return Response(
+        generate(),
+        content_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route("/ai_status")
+def ai_status():
+    """Expose the remote debug payload for dashboard diagnostics."""
+    try:
+        response = requests.get(f"{AI_SERVER_BASE}/debug_status", timeout=HTTP_TIMEOUT)
+        response.raise_for_status()
+        return Response(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers.get("Content-Type", "application/json"),
+        )
+    except requests.RequestException as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
+
+
+if __name__ == "__main__":
+    print(f"Dashboard -> Traffic AI server: {AI_SERVER_BASE}")
+    app.run(host="0.0.0.0", port=5000, threaded=True, debug=True)
