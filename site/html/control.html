@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>try { if (localStorage.getItem('mini-project-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (error) { /* 기본 다크 모드 */ }</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="주정차·역주행 및 낙하물 대시보드">
+  <title>도로 이상상황 대시보드 | AI 도로 낙하물 탐지 시스템</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/control-dashboard.css">
+  <link rel="stylesheet" href="/static/css/camera-stream.css">
+</head>
+<body>
+  <header>
+    <div class="brand">AI 도로 낙하물 탐지 시스템</div>
+    <nav aria-label="주 메뉴">
+      <a href="/">홈</a>
+      <a href="/about">개요</a>
+      <a href="/control">대시보드</a>
+    </nav>
+  </header>
+
+  <main id="dashboard">
+    <div class="dash-heading">
+      <div><p class="eyebrow">DASHBOARD / 대시보드</p><h1>도로 이상상황 대시보드</h1><p id="dash-subtitle">카메라 2대 · 주정차 및 역주행</p></div>
+      <div class="dash-actions"><span class="demo-label">교통 탐지 기록: 실제 AI 이벤트</span><button class="btn btn-primary" id="add-demo" type="button">낙하물 예시 탐지</button><button class="btn" id="reset-demo" type="button">예시 초기화</button></div>
+    </div>
+
+    <div class="dash-tabs" role="tablist" aria-label="대시보드 유형">
+      <button id="tab-traffic" class="dash-tab" type="button" role="tab" aria-selected="true" aria-controls="dash-panel" data-view="traffic">주정차·역주행</button>
+      <button id="tab-objects" class="dash-tab" type="button" role="tab" aria-selected="false" aria-controls="dash-panel" data-view="objects" tabindex="-1">낙하물</button>
+    </div>
+
+    <div id="dash-panel" role="tabpanel" aria-labelledby="tab-traffic">
+      <div class="dash-summary" aria-label="대시보드 요약">
+        <div class="summary-card"><span id="source-label">연결된 카메라</span><strong id="source-count">0 <small>/ 2대</small></strong></div>
+        <div class="summary-card"><span id="count-label">차량 이상 탐지</span><strong id="detection-count"></strong></div>
+        <div class="summary-card"><span>최근 탐지</span><strong id="latest-event"></strong></div>
+        <div class="summary-card"><span>연결 상태</span><strong id="system-state">연결 대기</strong></div>
+      </div>
+
+      <div class="dash-grid">
+        <section class="dash-card monitor-card" aria-labelledby="monitor-title">
+          <div class="dash-card-head"><h2 id="monitor-title">카메라 화면</h2><span id="monitor-status">라즈베리 파이 연결 전</span></div>
+
+          <div id="traffic-view" class="camera-grid">
+            <article class="camera-card"><div class="camera-title"><strong>CAM 01</strong><span>연결 대기</span></div><div class="camera-empty"><span class="camera-glyph" aria-hidden="true">▣</span><strong>영상 연결 대기</strong><p>첫 번째 라즈베리 파이 카메라 화면</p></div></article>
+            <article class="camera-card"><div class="camera-title"><strong>CAM 02</strong><span>연결 대기</span></div><div class="camera-empty"><span class="camera-glyph" aria-hidden="true">▣</span><strong>영상 연결 대기</strong><p>두 번째 라즈베리 파이 카메라 화면</p></div></article>
+          </div>
+
+          <div id="objects-view" hidden>
+            <div class="source-controls">
+              <label for="media-url">영상 또는 사진 링크</label>
+              <div class="source-row"><input id="media-url" type="url" placeholder="https://.../video.mp4 또는 YouTube 링크"><button id="open-link" type="button" class="btn btn-primary">링크 열기</button></div>
+              <span class="source-upload-label">사진·영상 파일 선택</span>
+              <div class="file-picker"><button id="choose-media-file" type="button" class="file-picker-button" aria-describedby="selected-file-name">파일 선택</button><span id="selected-file-name" aria-live="polite">선택한 파일 없음</span><input id="media-file" class="sr-only" type="file" accept="image/*,video/*" aria-label="사진 또는 영상 파일 선택" tabindex="-1"></div>
+              <p class="source-hint">직접 영상·사진 주소 또는 YouTube 링크를 지원합니다. 파일은 현재 브라우저에서만 열립니다.</p>
+              <p id="source-error" class="source-error" role="alert"></p>
+            </div>
+            <div id="media-stage" class="media-stage"><p>영상 링크를 입력하거나 사진·영상 파일을 선택하세요.</p></div>
+            <div class="media-footer"><span id="media-name">선택한 매체 없음</span><span>자동 탐지 모델 미연결</span></div>
+          </div>
+        </section>
+
+        <aside class="dash-side">
+          <section class="dash-card" aria-labelledby="history-title">
+            <div class="dash-card-head"><h2 id="history-title">탐지 기록</h2><select id="camera-filter" aria-label="카메라 필터"><option value="all">전체 카메라</option><option value="CAM 01">CAM 01</option><option value="CAM 02">CAM 02</option></select></div>
+            <div class="history-filter"><label for="type-filter">유형</label><select id="type-filter" aria-label="탐지 유형"><option value="all">전체 유형</option><option value="parking">주정차</option><option value="wrongway">역주행</option></select></div>
+            <div id="event-list" class="event-list"></div><div class="history-more"><a class="btn btn-primary" href="/history">더보기 · 전체 탐지 기록</a></div>
+          </section>
+          <section class="dash-card"><div class="dash-card-head"><h2 id="criteria-title">주정차·역주행 판정</h2></div><div id="criteria-copy" class="criteria-copy">주정차는 지정 구역의 정차 지속 시간, 역주행은 차량 이동 방향을 기준으로 판정할 예정입니다. 실제 판정 기준은 모델 연결 단계에서 확정합니다.</div></section>
+        </aside>
+      </div>
+    </div>
+    <p class="dash-disclaimer">주정차·역주행 탭은 <strong>실제 AI 서버 이상상황 이벤트</strong>를 표시합니다. 상세보기에서 저장된 이벤트 이미지와 영상을 확인할 수 있습니다. 과거 탐지 기록도 AI 서버에서 불러오며, 신뢰도 값이 없는 기록은 <strong>—</strong>로 표시됩니다. 낙하물 탭은 아직 기능 확인용 예시입니다.</p>
+    <div class="legacy-panels">
+<section id="detection-info">
+      <h2>오늘의 최근 탐지 결과 <small>최근 10건</small></h2>
+      <table>
+        <thead>
+          <tr>
+            <th>발생 일시</th>
+            <th>유형</th>
+            <th>신뢰도</th>
+          </tr>
+        </thead>
+        <tbody id="detection-table-body">
+          <tr><td colspan="3" class="mono">데이터를 불러오는 중…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+<section id="alert-panel">
+      <h2>실시간 알림</h2>
+      <ul id="alert-list"></ul>
+      <button type="button" id="report-btn" class="btn btn-primary">이상상황 신고하기</button>
+    </section>
+
+<section id="model-compare">
+      <h2>모델 비교</h2>
+      <p class="compare-intro">낙하물(목재·상자·페트병) 모델 비교입니다. 같은 test 371장, 입력 크기 640으로 평가했습니다. 아래 수치는 서버 실시간 연결 상태를 뜻하지 않습니다.</p>
+      <div class="tabs" role="tablist" aria-label="모델 비교 방식">
+        <button type="button" class="tab-btn active" id="model-tab-a" data-target="model-a" role="tab" aria-selected="true" aria-controls="model-a">YOLO11n 정량 평가</button>
+        <button type="button" class="tab-btn" id="model-tab-b" data-target="model-b" role="tab" aria-selected="false" aria-controls="model-b">RF-DETR 정성 비교</button>
+      </div>
+      <div id="model-a" class="model-panel active" role="tabpanel" aria-labelledby="model-tab-a">
+        <div class="compare-table-wrap"><table class="compare-table">
+          <thead><tr><th scope="col">모델</th><th scope="col">전체 P</th><th scope="col">전체 R</th><th scope="col">전체 mAP50</th><th scope="col">전체 mAP50-95</th><th scope="col">wood R</th><th scope="col">wood mAP50</th><th scope="col">wood 오탐 / 미탐</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">팀 YOLO11n · 88 epoch</th><td>0.838</td><td>0.741</td><td class="compare-best">0.805</td><td class="compare-best">0.620</td><td>0.489</td><td>0.601</td><td>149 / 206</td></tr>
+            <tr class="compare-candidate"><th scope="row">Alope · 121 epoch</th><td>0.827</td><td>0.732</td><td>0.796</td><td>0.602</td><td>0.505</td><td>0.601</td><td>156 / 188</td></tr>
+            <tr class="compare-candidate"><th scope="row">Alope · 151 epoch <span class="pill">후보</span></th><td>0.828</td><td class="compare-best">0.750</td><td>0.798</td><td>0.608</td><td class="compare-best">0.541</td><td class="compare-best">0.604</td><td>151 / 192</td></tr>
+            <tr class="compare-candidate"><th scope="row">Alope · 181 epoch</th><td>0.827</td><td>0.729</td><td>0.792</td><td>0.611</td><td>0.491</td><td>0.593</td><td>133 / 204</td></tr>
+          </tbody>
+        </table></div>
+        <div class="compare-charts">
+          <div class="compare-chart-card"><h3>전체 mAP50 · 목재 재현율</h3><div class="compare-chart-canvas"><canvas id="model-metrics-chart" role="img" aria-label="네 모델의 전체 mAP50과 목재 재현율 비교 그래프"></canvas></div></div>
+          <div class="compare-chart-card"><h3>목재 신뢰도 기준별 오탐 · 미탐</h3><p>Alope 151 · 동일 test 371장</p><div class="compare-chart-canvas"><canvas id="threshold-chart" role="img" aria-label="Alope 151의 confidence 기준별 목재 오탐·미탐 건수 그래프"></canvas></div></div>
+        </div>
+        <p id="chart-unavailable" class="model-note" hidden>그래프를 불러오지 못했습니다. 위 모델 비교 표의 수치는 계속 확인할 수 있습니다.</p>
+        <p class="model-note">전체 P·R·mAP: Ultralytics val(test split). wood 오탐·미탐: confidence 0.25, IoU 0.5 기준 건수. Alope 181의 오탐 건수가 가장 적고, Alope 121의 미탐 건수가 가장 적습니다.</p>
+        <p class="compare-takeaway"><strong>3주차 선택 근거</strong> 팀 88의 전체 mAP50은 0.805로 가장 높습니다. Alope 151은 wood 재현율이 0.489 → 0.541로 높아 다음 적용 후보입니다. 서버의 모델 교체는 4주차 계획입니다.</p>
+        <p class="compare-takeaway"><strong>wood 임계값 분석</strong> Alope 151의 confidence를 0.25 → 0.30으로 올리면 오탐 151 → 115건, 미탐 192 → 200건입니다. 발표 자료는 0.30에서 F1 0.624를 보고합니다. 실제 서버 반영은 이후 검증 단계입니다.</p>
+      </div>
+      <div id="model-b" class="model-panel" role="tabpanel" aria-labelledby="model-tab-b">
+        <p class="compare-takeaway"><strong>RF-DETR nano · 59 epoch</strong> 같은 3,706장 데이터로 학습하고 실사진 15장을 눈으로 비교했습니다. 복잡한 장면에서 YOLO11n 88 epoch가 놓친 상자를 추가로 찾은 사례가 있습니다.</p>
+        <p class="model-note">이 결과는 15장의 정성 비교입니다. test 371장 mAP와 처리 속도 수치는 아직 제시되지 않았으며, 4주차 정량 비교 예정입니다. 신뢰도 0.2~0.4인 검출을 재확인하는 2차 모델로 활용할 계획입니다.</p>
+      </div>
+    </section>
+
+<section id="detection-log">
+      <h2>탐지 로그 <small>최근 30건</small></h2>
+      <ul id="log-list"></ul>
+    </section>
+    </div>
+  </main>
+
+  <dialog id="event-dialog" class="event-dialog" aria-labelledby="event-title"><div class="dialog-head"><h2 id="event-title">탐지 상세</h2><button id="close-dialog" type="button" class="btn btn-small" aria-label="상세 창 닫기">닫기</button></div><div class="dialog-body"><div id="event-media" class="event-media"></div><dl id="event-details" class="event-details"></dl><p id="event-reason" class="event-reason"></p><p class="dialog-note">예시 기록입니다. 실제 모델 판정 결과가 아닙니다.</p></div></dialog>
+
+  <button id="theme-toggle" type="button" aria-label="밝은 모드로 전환" aria-pressed="false" title="밝은 모드로 전환">☀</button>
+  <button id="chat-fab" type="button" aria-expanded="false" aria-controls="chat-panel"><span class="sr-only">도움말 챗봇 열기</span></button>
+  <div id="chat-panel" role="dialog" aria-label="도움말 챗봇"></div>
+  <footer><p>© 2026 AI 도로 낙하물 탐지 및 모니터링 포트폴리오</p></footer>
+  <script src="/static/js/site.js"></script>
+  <script src="/static/js/control-dashboard.js"></script>
+  <script src="/static/js/camera-stream.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
+  <script src="/static/js/model-charts.js" defer></script>
+</body>
+</html>
