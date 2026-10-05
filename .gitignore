@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+.idea/
+
+# Model weights / datasets / large media
+*.pt
+*.pth
+*.onnx
+*.zip
+*.mp4
+*.avi
+*.mov
+datasets/
+data/
+weights/
+
+# Runtime artifacts
+results/raw/
+events/
+uploads/
+.DS_Store
+Thumbs.db
