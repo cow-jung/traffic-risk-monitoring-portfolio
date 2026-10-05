@@ -4,11 +4,12 @@ import os
 import requests
 
 BASE_DIR = Path(__file__).resolve().parent
+SITE_DIR = BASE_DIR.parent / "site"
 
 app = Flask(
     __name__,
-    template_folder=str(BASE_DIR / "site" / "html"),
-    static_folder=str(BASE_DIR / "site"),
+    template_folder=str(SITE_DIR / "html"),
+    static_folder=str(SITE_DIR),
     static_url_path="/static",
 )
 
