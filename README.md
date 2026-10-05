@@ -94,9 +94,8 @@ Raspberry Pi + USB Camera → Frame Upload → AI Detection Server → Detection
 traffic-risk-monitoring-portfolio/
 ├── dashboard/       # Flask 대시보드
 ├── raspberrypi/     # 카메라 / ROI 코드
-├── notebooks/       # 핵심 실험 노트북 (추가 예정)
-├── results/         # 정량 평가 결과 (추가 예정)
-├── docs/images/     # README 이미지 (추가 예정)
+├── notebooks/       # 핵심 모델 비교 / EarlyStopping 실험
+├── results/         # FP/FN, threshold, 크기별 recall 등 정량 결과
 ├── .gitignore
 └── README.md
 ```
@@ -114,6 +113,37 @@ $env:AI_SERVER_BASE="http://<AI_SERVER_IP>:5000"
 python app.py
 ```
 
-## 📌 포트폴리오 정리 상태
+## 📊 핵심 평가 결과
 
-현재 Flask 대시보드 코드와 Raspberry Pi 연동 코드를 우선 공개했습니다. 다음 단계에서 핵심 Colab 노트북, 모델 비교 CSV/그래프, 대시보드 및 탐지 결과 화면을 선별해 추가합니다.
+동일한 test 371장, conf 0.25, IoU 0.5 조건에서 전체 클래스 기준 비교 결과입니다.
+
+| Model | Precision | Recall | F1 | FP | FN |
+|---|---:|---:|---:|---:|---:|
+| YOLO11n 88 | 0.7189 | **0.7532** | 0.7357 | 389 | **326** |
+| Alope 121 | 0.7107 | **0.7532** | 0.7313 | 405 | **326** |
+| Alope 151 | 0.7324 | 0.7479 | 0.7401 | 361 | 333 |
+| **Alope 181** | **0.7410** | 0.7449 | **0.7429** | **344** | 337 |
+
+전체 F1은 Alope 181이 0.7429로 가장 높았습니다. 다만 모델 선정은 전체 F1 하나로 결정하지 않고, 실제 도로 환경에서 중요한 wood 클래스의 FP/FN과 객체 크기별 Recall을 함께 확인했습니다.
+
+### Wood 클래스 분석
+
+conf 0.25에서 Alope 121은 wood FN이 188로 가장 낮아 Recall 측면에서 유리했고, Alope 181은 FP가 133으로 가장 낮았습니다. threshold 분석에서는 Alope 121/151/181 모두 conf 0.30에서 wood F1이 가장 높았으며, Alope 181은 F1 0.6238, FP 95, FN 209를 기록했습니다.
+
+객체 크기별 wood Recall은 small에서 Alope 181(0.1833), medium에서 Alope 151(0.4713), large에서 Alope 121(0.7261)이 가장 높았습니다. 이를 통해 하나의 모델이 모든 크기와 오류 유형에서 항상 우세하지 않다는 점을 확인했습니다.
+
+## 📂 공개 실험 자료
+
+- `notebooks/YOLO11n88_vs_Alope121_151_181_comparison.ipynb` — 4개 모델 정량 비교 및 추가 분석
+- `notebooks/Alope_EarlyStopping_epoch_search.ipynb` — EarlyStopping 기반 epoch 탐색
+- `results/fp_fn_by_model.csv` — 모델·클래스별 TP/FP/FN
+- `results/threshold_tradeoff.csv` — confidence 변화 분석
+- `results/wood_recall_by_size.csv` — wood 크기별 Recall
+- `results/flicker_by_model.csv` — 샘플 영상 구간 탐지 안정성
+- `results/SUMMARY.md` — 주요 결과 요약
+
+> 영상 flicker 값은 첫 300프레임 중 3프레임 간격으로 샘플링한 제한적 분석이므로 전체 영상 성능 지표로 해석하지 않았습니다.
+
+## 📌 포트폴리오 정리 기준
+
+원본 데이터셋(약 2.5GB), 모델 가중치 및 대용량 영상은 GitHub에서 제외했습니다. 대신 모델 선정 과정과 결과를 검토할 수 있도록 핵심 실험 노트북과 정량 CSV를 공개했습니다. 화면 캡처 없이도 코드 → 실험 → 결과 → 해석의 흐름을 확인할 수 있도록 구성했습니다.
